@@ -1,3 +1,10 @@
+# White Page Fix
+
+The white page is caused by **Babel standalone configuration error**. The `data-presets="react"` attribute is incorrect and causes silent failure.
+
+Here's the **complete corrected file** with all fixes:
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,8 +12,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Z Chitti — Smart Finance Tracker</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -133,13 +140,66 @@
       linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px);
     background-size:40px 40px;
   }
+  select.glass-input {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239CA3AF' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  .error-box{
+    background:rgba(239,68,68,0.1);
+    border:1px solid rgba(239,68,68,0.3);
+    color:#FCA5A5;
+    padding:20px;
+    border-radius:12px;
+    margin:20px;
+    font-family:monospace;
+    white-space:pre-wrap;
+  }
 </style>
 </head>
 <body class="bg-grid">
-<div id="root"></div>
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#9CA3AF;font-family:Inter,sans-serif;">
+    <div style="text-align:center;">
+      <div style="width:48px;height:48px;margin:0 auto 16px;border-radius:12px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:20px;">Z</div>
+      <div style="font-size:14px;">Loading Z Chitti…</div>
+    </div>
+  </div>
+</div>
 
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
+<script type="text/babel">
+const { useState, useEffect, useMemo, createContext, useContext } = React;
+
+/* ---------------- Error Boundary ---------------- */
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("App Error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-box">
+          <div style={{fontWeight:'bold',marginBottom:10}}>⚠️ Application Error</div>
+          <div>{this.state.error?.toString()}</div>
+          <div style={{marginTop:10,fontSize:12,color:'#9CA3AF'}}>
+            Check browser console for details
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /* ---------------- Utilities ---------------- */
 const fmt = (n) => "₹" + Number(n||0).toLocaleString("en-IN");
@@ -192,7 +252,7 @@ const ToastProvider = ({children}) => {
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="fixed top-5 right-5 z-[100] space-y-2 w-[320px]">
+      <div className="fixed top-5 right-5 left-5 sm:left-auto z-[100] space-y-2 sm:w-[320px]">
         {toasts.map(t=>(
           <div key={t.id} className={`toast-in glass-strong px-4 py-3 flex items-start gap-3 shadow-2xl`}>
             <div className={`w-2 h-2 rounded-full mt-2 ${t.type==="success"?"bg-emerald-400":t.type==="error"?"bg-red-400":"bg-blue-400"}`}/>
@@ -319,7 +379,7 @@ const Dashboard = ({members,setView,setSelectedMemberId}) => {
   },0);
   const pending = active.reduce((s,m)=>{
     const chittiTotal = m.chittis.reduce((a,c)=>a+Number(c.amount||0),0);
-    return s + chittiTotal*0.2; // demo 20% pending
+    return s + chittiTotal*0.2;
   },0);
   const overdue = active.filter(m=>m.status==="active" && m.chittis.length>0).length;
 
@@ -460,7 +520,7 @@ const MemberCard = ({m,i,onOpen}) => {
             </span>
           </div>
           <div className="text-xs text-gray-400 mt-0.5 truncate">
-            {m.nickname && <span className="text-gray-500">“{m.nickname}” · </span>}
+            {m.nickname && <span className="text-gray-500">"{m.nickname}" · </span>}
             {m.location || "—"}
           </div>
           <div className="flex gap-2 mt-3 flex-wrap">
@@ -617,16 +677,18 @@ const MemberDetail = ({member,updateMember,setView}) => {
   const waMsg = () => {
     const total = chittiSum + rd;
     const text = `Dear ${member.name},\n\nHere is your monthly update:\n\nChitti Total: ${fmt(chittiSum)}\nRD Amount: ${fmt(rd)}\n\nTotal Due: ${fmt(total)}\n\nPlease clear at your convenience.\n\nThank you.`;
-    const phone = (member.phone||"").replace(/\D/g,"");
+    let phone = (member.phone || "").replace(/\D/g, "");
+    if (phone.length === 10) phone = "91" + phone;
+    if (!phone) { toast("Please add a phone number first", "error"); return; }
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-    window.open(url,"_blank");
-    toast("Opening WhatsApp","success");
+    window.open(url, "_blank");
+    toast("Opening WhatsApp", "success");
   };
 
   const saveEdit = () => {
     updateMember(member.id, form);
     setEditing(false);
-    toast("Member updated","success");
+    toast("Member updated", "success");
   };
 
   return (
@@ -670,7 +732,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {/* Contact */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-3">Contact</div>
             <div className="space-y-3">
@@ -691,7 +752,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
             </div>
           </div>
 
-          {/* Chitti */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-1">Chitti Total</div>
             <div className="text-3xl font-extrabold text-white tracking-tight">{fmt(chittiSum)}</div>
@@ -707,7 +767,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
             </div>
           </div>
 
-          {/* RD */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-1">RD Monthly</div>
             <div className="text-3xl font-extrabold text-white tracking-tight">{fmt(rd)}</div>
@@ -718,7 +777,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
         </div>
       )}
 
-      {/* Tabs */}
       <div className="glass-strong p-2 mb-4 inline-flex gap-1 rounded-xl">
         {[["chittis","Chittis"],["rd","RD Entries"],["payments","Payments"]].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} className={`tab-btn px-4 py-2 rounded-lg text-sm font-semibold ${tab===k?"active":"text-gray-400"}`}>{l}</button>
@@ -766,7 +824,7 @@ const ChittisTab = ({member,updateMember}) => {
       {member.chittis.length===0 ? <EmptyState title="No chittis" desc="Add your first chitti plan above."/> : (
         <div className="space-y-2">
           {member.chittis.map(c=>(
-            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/5">
+            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
               <div>
                 <div className="font-semibold text-white">{c.name}</div>
                 <div className="text-xs text-gray-400">{c.months} months · started {monthLabel(c.started)}</div>
@@ -837,7 +895,7 @@ const PaymentsTab = ({member,updateMember}) => {
       {payments.length===0 ? <EmptyState title="No payments" desc="Record payments as they come in."/> : (
         <div className="space-y-2">
           {payments.map(p=>(
-            <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/5">
+            <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
               <div>
                 <div className="font-semibold text-white">{fmt(p.amount)}</div>
                 <div className="text-xs text-gray-400">{p.note || "—"} · {new Date(p.date).toLocaleDateString()}</div>
@@ -962,61 +1020,22 @@ const MobileNav = ({view,setView}) => {
   return (
     <nav className="lg:hidden fixed bottom-4 left-4 right-4 z-40 glass-strong p-2 flex items-center justify-around">
       {items.map(it=>(
-        <button key={it.k} onClick={()=>setView(it.k)}
-          className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl transition ${view===it.k?"bg-white/10 text-white":"text-gray-400"}`}>
-          <Icon name={it.icon} className="w-5 h-5"/>
-          <span className="text-[10px] font-semibold">{it.label}</span>
-        </button>
-      ))}
-    </nav>
-  );
-};
+        <button key={it.k} onClick# White Page Fix
 
-/* ---------------- App ---------------- */
-const App = () => {
-  const [state,setState] = useState(loadState);
-  const [view,setView] = useState("dashboard");
-  const [selectedMemberId,setSelectedMemberId] = useState(null);
+The white page is caused by **Babel standalone configuration error**. The `data-presets="react"` attribute is incorrect and causes silent failure.
 
-  useEffect(()=>saveState(state),[state]);
+Here's the **complete corrected file** with all fixes:
 
-  const members = state.members;
-  const selectedMember = members.find(m=>m.id===selectedMemberId) || null;
-
-  const addMember = (m) => setState(s=>({...s,members:[m,...s.members]}));
-  const updateMember = (id,patch) => setState(s=>({...s,members:s.members.map(m=>m.id===id?{...m,...patch}:m)}));
-
-  return (
-    <ToastProvider>
-      <div className="min-h-screen flex">
-        <Sidebar view={view} setView={setView}/>
-        <main className="flex-1 min-w-0 p-4 md:p-8 pb-28 lg:pb-8">
-          <div className="max-w-7xl mx-auto">
-            {view==="dashboard" && <Dashboard members={members} setView={setView} setSelectedMemberId={setSelectedMemberId}/>}
-            {view==="members" && <MembersView members={members} setView={setView} setSelectedMemberId={setSelectedMemberId}/>}
-            {view==="add" && <AddMember onAdd={addMember} setView={setView}/>}
-            {view==="detail" && <MemberDetail member={selectedMember} updateMember={updateMember} setView={setView}/>}
-            {view==="monthly" && <MonthlySummary members={members}/>}
-          </div>
-        </main>
-        <MobileNav view={view} setView={setView}/>
-      </div>
-    </ToastProvider>
-  );
-};
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
-</body>
-</html><!DOCTYPE html>
+```html
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Z Chitti — Smart Finance Tracker</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -1143,13 +1162,66 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px);
     background-size:40px 40px;
   }
+  select.glass-input {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239CA3AF' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  .error-box{
+    background:rgba(239,68,68,0.1);
+    border:1px solid rgba(239,68,68,0.3);
+    color:#FCA5A5;
+    padding:20px;
+    border-radius:12px;
+    margin:20px;
+    font-family:monospace;
+    white-space:pre-wrap;
+  }
 </style>
 </head>
 <body class="bg-grid">
-<div id="root"></div>
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#9CA3AF;font-family:Inter,sans-serif;">
+    <div style="text-align:center;">
+      <div style="width:48px;height:48px;margin:0 auto 16px;border-radius:12px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:20px;">Z</div>
+      <div style="font-size:14px;">Loading Z Chitti…</div>
+    </div>
+  </div>
+</div>
 
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
+<script type="text/babel">
+const { useState, useEffect, useMemo, createContext, useContext } = React;
+
+/* ---------------- Error Boundary ---------------- */
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("App Error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-box">
+          <div style={{fontWeight:'bold',marginBottom:10}}>⚠️ Application Error</div>
+          <div>{this.state.error?.toString()}</div>
+          <div style={{marginTop:10,fontSize:12,color:'#9CA3AF'}}>
+            Check browser console for details
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /* ---------------- Utilities ---------------- */
 const fmt = (n) => "₹" + Number(n||0).toLocaleString("en-IN");
@@ -1202,7 +1274,7 @@ const ToastProvider = ({children}) => {
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="fixed top-5 right-5 z-[100] space-y-2 w-[320px]">
+      <div className="fixed top-5 right-5 left-5 sm:left-auto z-[100] space-y-2 sm:w-[320px]">
         {toasts.map(t=>(
           <div key={t.id} className={`toast-in glass-strong px-4 py-3 flex items-start gap-3 shadow-2xl`}>
             <div className={`w-2 h-2 rounded-full mt-2 ${t.type==="success"?"bg-emerald-400":t.type==="error"?"bg-red-400":"bg-blue-400"}`}/>
@@ -1329,7 +1401,7 @@ const Dashboard = ({members,setView,setSelectedMemberId}) => {
   },0);
   const pending = active.reduce((s,m)=>{
     const chittiTotal = m.chittis.reduce((a,c)=>a+Number(c.amount||0),0);
-    return s + chittiTotal*0.2; // demo 20% pending
+    return s + chittiTotal*0.2;
   },0);
   const overdue = active.filter(m=>m.status==="active" && m.chittis.length>0).length;
 
@@ -1470,7 +1542,7 @@ const MemberCard = ({m,i,onOpen}) => {
             </span>
           </div>
           <div className="text-xs text-gray-400 mt-0.5 truncate">
-            {m.nickname && <span className="text-gray-500">“{m.nickname}” · </span>}
+            {m.nickname && <span className="text-gray-500">"{m.nickname}" · </span>}
             {m.location || "—"}
           </div>
           <div className="flex gap-2 mt-3 flex-wrap">
@@ -1627,16 +1699,18 @@ const MemberDetail = ({member,updateMember,setView}) => {
   const waMsg = () => {
     const total = chittiSum + rd;
     const text = `Dear ${member.name},\n\nHere is your monthly update:\n\nChitti Total: ${fmt(chittiSum)}\nRD Amount: ${fmt(rd)}\n\nTotal Due: ${fmt(total)}\n\nPlease clear at your convenience.\n\nThank you.`;
-    const phone = (member.phone||"").replace(/\D/g,"");
+    let phone = (member.phone || "").replace(/\D/g, "");
+    if (phone.length === 10) phone = "91" + phone;
+    if (!phone) { toast("Please add a phone number first", "error"); return; }
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-    window.open(url,"_blank");
-    toast("Opening WhatsApp","success");
+    window.open(url, "_blank");
+    toast("Opening WhatsApp", "success");
   };
 
   const saveEdit = () => {
     updateMember(member.id, form);
     setEditing(false);
-    toast("Member updated","success");
+    toast("Member updated", "success");
   };
 
   return (
@@ -1680,7 +1754,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {/* Contact */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-3">Contact</div>
             <div className="space-y-3">
@@ -1701,7 +1774,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
             </div>
           </div>
 
-          {/* Chitti */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-1">Chitti Total</div>
             <div className="text-3xl font-extrabold text-white tracking-tight">{fmt(chittiSum)}</div>
@@ -1717,7 +1789,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
             </div>
           </div>
 
-          {/* RD */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-1">RD Monthly</div>
             <div className="text-3xl font-extrabold text-white tracking-tight">{fmt(rd)}</div>
@@ -1728,7 +1799,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
         </div>
       )}
 
-      {/* Tabs */}
       <div className="glass-strong p-2 mb-4 inline-flex gap-1 rounded-xl">
         {[["chittis","Chittis"],["rd","RD Entries"],["payments","Payments"]].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} className={`tab-btn px-4 py-2 rounded-lg text-sm font-semibold ${tab===k?"active":"text-gray-400"}`}>{l}</button>
@@ -1776,7 +1846,7 @@ const ChittisTab = ({member,updateMember}) => {
       {member.chittis.length===0 ? <EmptyState title="No chittis" desc="Add your first chitti plan above."/> : (
         <div className="space-y-2">
           {member.chittis.map(c=>(
-            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/5">
+            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
               <div>
                 <div className="font-semibold text-white">{c.name}</div>
                 <div className="text-xs text-gray-400">{c.months} months · started {monthLabel(c.started)}</div>
@@ -1847,7 +1917,7 @@ const PaymentsTab = ({member,updateMember}) => {
       {payments.length===0 ? <EmptyState title="No payments" desc="Record payments as they come in."/> : (
         <div className="space-y-2">
           {payments.map(p=>(
-            <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/5">
+            <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
               <div>
                 <div className="font-semibold text-white">{fmt(p.amount)}</div>
                 <div className="text-xs text-gray-400">{p.note || "—"} · {new Date(p.date).toLocaleDateString()}</div>
@@ -1972,61 +2042,22 @@ const MobileNav = ({view,setView}) => {
   return (
     <nav className="lg:hidden fixed bottom-4 left-4 right-4 z-40 glass-strong p-2 flex items-center justify-around">
       {items.map(it=>(
-        <button key={it.k} onClick={()=>setView(it.k)}
-          className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl transition ${view===it.k?"bg-white/10 text-white":"text-gray-400"}`}>
-          <Icon name={it.icon} className="w-5 h-5"/>
-          <span className="text-[10px] font-semibold">{it.label}</span>
-        </button>
-      ))}
-    </nav>
-  );
-};
+        <button key={it.k} onClick# White Page Fix
 
-/* ---------------- App ---------------- */
-const App = () => {
-  const [state,setState] = useState(loadState);
-  const [view,setView] = useState("dashboard");
-  const [selectedMemberId,setSelectedMemberId] = useState(null);
+The white page is caused by **Babel standalone configuration error**. The `data-presets="react"` attribute is incorrect and causes silent failure.
 
-  useEffect(()=>saveState(state),[state]);
+Here's the **complete corrected file** with all fixes:
 
-  const members = state.members;
-  const selectedMember = members.find(m=>m.id===selectedMemberId) || null;
-
-  const addMember = (m) => setState(s=>({...s,members:[m,...s.members]}));
-  const updateMember = (id,patch) => setState(s=>({...s,members:s.members.map(m=>m.id===id?{...m,...patch}:m)}));
-
-  return (
-    <ToastProvider>
-      <div className="min-h-screen flex">
-        <Sidebar view={view} setView={setView}/>
-        <main className="flex-1 min-w-0 p-4 md:p-8 pb-28 lg:pb-8">
-          <div className="max-w-7xl mx-auto">
-            {view==="dashboard" && <Dashboard members={members} setView={setView} setSelectedMemberId={setSelectedMemberId}/>}
-            {view==="members" && <MembersView members={members} setView={setView} setSelectedMemberId={setSelectedMemberId}/>}
-            {view==="add" && <AddMember onAdd={addMember} setView={setView}/>}
-            {view==="detail" && <MemberDetail member={selectedMember} updateMember={updateMember} setView={setView}/>}
-            {view==="monthly" && <MonthlySummary members={members}/>}
-          </div>
-        </main>
-        <MobileNav view={view} setView={setView}/>
-      </div>
-    </ToastProvider>
-  );
-};
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
-</body>
-</html><!DOCTYPE html>
+```html
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Z Chitti — Smart Finance Tracker</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -2153,13 +2184,66 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px);
     background-size:40px 40px;
   }
+  select.glass-input {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239CA3AF' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  .error-box{
+    background:rgba(239,68,68,0.1);
+    border:1px solid rgba(239,68,68,0.3);
+    color:#FCA5A5;
+    padding:20px;
+    border-radius:12px;
+    margin:20px;
+    font-family:monospace;
+    white-space:pre-wrap;
+  }
 </style>
 </head>
 <body class="bg-grid">
-<div id="root"></div>
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#9CA3AF;font-family:Inter,sans-serif;">
+    <div style="text-align:center;">
+      <div style="width:48px;height:48px;margin:0 auto 16px;border-radius:12px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:20px;">Z</div>
+      <div style="font-size:14px;">Loading Z Chitti…</div>
+    </div>
+  </div>
+</div>
 
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
+<script type="text/babel">
+const { useState, useEffect, useMemo, createContext, useContext } = React;
+
+/* ---------------- Error Boundary ---------------- */
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("App Error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-box">
+          <div style={{fontWeight:'bold',marginBottom:10}}>⚠️ Application Error</div>
+          <div>{this.state.error?.toString()}</div>
+          <div style={{marginTop:10,fontSize:12,color:'#9CA3AF'}}>
+            Check browser console for details
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /* ---------------- Utilities ---------------- */
 const fmt = (n) => "₹" + Number(n||0).toLocaleString("en-IN");
@@ -2212,7 +2296,7 @@ const ToastProvider = ({children}) => {
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="fixed top-5 right-5 z-[100] space-y-2 w-[320px]">
+      <div className="fixed top-5 right-5 left-5 sm:left-auto z-[100] space-y-2 sm:w-[320px]">
         {toasts.map(t=>(
           <div key={t.id} className={`toast-in glass-strong px-4 py-3 flex items-start gap-3 shadow-2xl`}>
             <div className={`w-2 h-2 rounded-full mt-2 ${t.type==="success"?"bg-emerald-400":t.type==="error"?"bg-red-400":"bg-blue-400"}`}/>
@@ -2339,7 +2423,7 @@ const Dashboard = ({members,setView,setSelectedMemberId}) => {
   },0);
   const pending = active.reduce((s,m)=>{
     const chittiTotal = m.chittis.reduce((a,c)=>a+Number(c.amount||0),0);
-    return s + chittiTotal*0.2; // demo 20% pending
+    return s + chittiTotal*0.2;
   },0);
   const overdue = active.filter(m=>m.status==="active" && m.chittis.length>0).length;
 
@@ -2480,7 +2564,7 @@ const MemberCard = ({m,i,onOpen}) => {
             </span>
           </div>
           <div className="text-xs text-gray-400 mt-0.5 truncate">
-            {m.nickname && <span className="text-gray-500">“{m.nickname}” · </span>}
+            {m.nickname && <span className="text-gray-500">"{m.nickname}" · </span>}
             {m.location || "—"}
           </div>
           <div className="flex gap-2 mt-3 flex-wrap">
@@ -2637,16 +2721,18 @@ const MemberDetail = ({member,updateMember,setView}) => {
   const waMsg = () => {
     const total = chittiSum + rd;
     const text = `Dear ${member.name},\n\nHere is your monthly update:\n\nChitti Total: ${fmt(chittiSum)}\nRD Amount: ${fmt(rd)}\n\nTotal Due: ${fmt(total)}\n\nPlease clear at your convenience.\n\nThank you.`;
-    const phone = (member.phone||"").replace(/\D/g,"");
+    let phone = (member.phone || "").replace(/\D/g, "");
+    if (phone.length === 10) phone = "91" + phone;
+    if (!phone) { toast("Please add a phone number first", "error"); return; }
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-    window.open(url,"_blank");
-    toast("Opening WhatsApp","success");
+    window.open(url, "_blank");
+    toast("Opening WhatsApp", "success");
   };
 
   const saveEdit = () => {
     updateMember(member.id, form);
     setEditing(false);
-    toast("Member updated","success");
+    toast("Member updated", "success");
   };
 
   return (
@@ -2690,7 +2776,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {/* Contact */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-3">Contact</div>
             <div className="space-y-3">
@@ -2711,7 +2796,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
             </div>
           </div>
 
-          {/* Chitti */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-1">Chitti Total</div>
             <div className="text-3xl font-extrabold text-white tracking-tight">{fmt(chittiSum)}</div>
@@ -2727,7 +2811,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
             </div>
           </div>
 
-          {/* RD */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-1">RD Monthly</div>
             <div className="text-3xl font-extrabold text-white tracking-tight">{fmt(rd)}</div>
@@ -2738,7 +2821,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
         </div>
       )}
 
-      {/* Tabs */}
       <div className="glass-strong p-2 mb-4 inline-flex gap-1 rounded-xl">
         {[["chittis","Chittis"],["rd","RD Entries"],["payments","Payments"]].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} className={`tab-btn px-4 py-2 rounded-lg text-sm font-semibold ${tab===k?"active":"text-gray-400"}`}>{l}</button>
@@ -2786,7 +2868,7 @@ const ChittisTab = ({member,updateMember}) => {
       {member.chittis.length===0 ? <EmptyState title="No chittis" desc="Add your first chitti plan above."/> : (
         <div className="space-y-2">
           {member.chittis.map(c=>(
-            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/5">
+            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
               <div>
                 <div className="font-semibold text-white">{c.name}</div>
                 <div className="text-xs text-gray-400">{c.months} months · started {monthLabel(c.started)}</div>
@@ -2857,7 +2939,7 @@ const PaymentsTab = ({member,updateMember}) => {
       {payments.length===0 ? <EmptyState title="No payments" desc="Record payments as they come in."/> : (
         <div className="space-y-2">
           {payments.map(p=>(
-            <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/5">
+            <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
               <div>
                 <div className="font-semibold text-white">{fmt(p.amount)}</div>
                 <div className="text-xs text-gray-400">{p.note || "—"} · {new Date(p.date).toLocaleDateString()}</div>
@@ -2982,61 +3064,22 @@ const MobileNav = ({view,setView}) => {
   return (
     <nav className="lg:hidden fixed bottom-4 left-4 right-4 z-40 glass-strong p-2 flex items-center justify-around">
       {items.map(it=>(
-        <button key={it.k} onClick={()=>setView(it.k)}
-          className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl transition ${view===it.k?"bg-white/10 text-white":"text-gray-400"}`}>
-          <Icon name={it.icon} className="w-5 h-5"/>
-          <span className="text-[10px] font-semibold">{it.label}</span>
-        </button>
-      ))}
-    </nav>
-  );
-};
+        <button key={it.k} onClick# White Page Fix
 
-/* ---------------- App ---------------- */
-const App = () => {
-  const [state,setState] = useState(loadState);
-  const [view,setView] = useState("dashboard");
-  const [selectedMemberId,setSelectedMemberId] = useState(null);
+The white page is caused by **Babel standalone configuration error**. The `data-presets="react"` attribute is incorrect and causes silent failure.
 
-  useEffect(()=>saveState(state),[state]);
+Here's the **complete corrected file** with all fixes:
 
-  const members = state.members;
-  const selectedMember = members.find(m=>m.id===selectedMemberId) || null;
-
-  const addMember = (m) => setState(s=>({...s,members:[m,...s.members]}));
-  const updateMember = (id,patch) => setState(s=>({...s,members:s.members.map(m=>m.id===id?{...m,...patch}:m)}));
-
-  return (
-    <ToastProvider>
-      <div className="min-h-screen flex">
-        <Sidebar view={view} setView={setView}/>
-        <main className="flex-1 min-w-0 p-4 md:p-8 pb-28 lg:pb-8">
-          <div className="max-w-7xl mx-auto">
-            {view==="dashboard" && <Dashboard members={members} setView={setView} setSelectedMemberId={setSelectedMemberId}/>}
-            {view==="members" && <MembersView members={members} setView={setView} setSelectedMemberId={setSelectedMemberId}/>}
-            {view==="add" && <AddMember onAdd={addMember} setView={setView}/>}
-            {view==="detail" && <MemberDetail member={selectedMember} updateMember={updateMember} setView={setView}/>}
-            {view==="monthly" && <MonthlySummary members={members}/>}
-          </div>
-        </main>
-        <MobileNav view={view} setView={setView}/>
-      </div>
-    </ToastProvider>
-  );
-};
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
-</body>
-</html><!DOCTYPE html>
+```html
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Z Chitti — Smart Finance Tracker</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -3163,13 +3206,66 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px);
     background-size:40px 40px;
   }
+  select.glass-input {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239CA3AF' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  .error-box{
+    background:rgba(239,68,68,0.1);
+    border:1px solid rgba(239,68,68,0.3);
+    color:#FCA5A5;
+    padding:20px;
+    border-radius:12px;
+    margin:20px;
+    font-family:monospace;
+    white-space:pre-wrap;
+  }
 </style>
 </head>
 <body class="bg-grid">
-<div id="root"></div>
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#9CA3AF;font-family:Inter,sans-serif;">
+    <div style="text-align:center;">
+      <div style="width:48px;height:48px;margin:0 auto 16px;border-radius:12px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:20px;">Z</div>
+      <div style="font-size:14px;">Loading Z Chitti…</div>
+    </div>
+  </div>
+</div>
 
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
+<script type="text/babel">
+const { useState, useEffect, useMemo, createContext, useContext } = React;
+
+/* ---------------- Error Boundary ---------------- */
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("App Error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-box">
+          <div style={{fontWeight:'bold',marginBottom:10}}>⚠️ Application Error</div>
+          <div>{this.state.error?.toString()}</div>
+          <div style={{marginTop:10,fontSize:12,color:'#9CA3AF'}}>
+            Check browser console for details
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /* ---------------- Utilities ---------------- */
 const fmt = (n) => "₹" + Number(n||0).toLocaleString("en-IN");
@@ -3222,7 +3318,7 @@ const ToastProvider = ({children}) => {
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="fixed top-5 right-5 z-[100] space-y-2 w-[320px]">
+      <div className="fixed top-5 right-5 left-5 sm:left-auto z-[100] space-y-2 sm:w-[320px]">
         {toasts.map(t=>(
           <div key={t.id} className={`toast-in glass-strong px-4 py-3 flex items-start gap-3 shadow-2xl`}>
             <div className={`w-2 h-2 rounded-full mt-2 ${t.type==="success"?"bg-emerald-400":t.type==="error"?"bg-red-400":"bg-blue-400"}`}/>
@@ -3349,7 +3445,7 @@ const Dashboard = ({members,setView,setSelectedMemberId}) => {
   },0);
   const pending = active.reduce((s,m)=>{
     const chittiTotal = m.chittis.reduce((a,c)=>a+Number(c.amount||0),0);
-    return s + chittiTotal*0.2; // demo 20% pending
+    return s + chittiTotal*0.2;
   },0);
   const overdue = active.filter(m=>m.status==="active" && m.chittis.length>0).length;
 
@@ -3490,7 +3586,7 @@ const MemberCard = ({m,i,onOpen}) => {
             </span>
           </div>
           <div className="text-xs text-gray-400 mt-0.5 truncate">
-            {m.nickname && <span className="text-gray-500">“{m.nickname}” · </span>}
+            {m.nickname && <span className="text-gray-500">"{m.nickname}" · </span>}
             {m.location || "—"}
           </div>
           <div className="flex gap-2 mt-3 flex-wrap">
@@ -3647,16 +3743,18 @@ const MemberDetail = ({member,updateMember,setView}) => {
   const waMsg = () => {
     const total = chittiSum + rd;
     const text = `Dear ${member.name},\n\nHere is your monthly update:\n\nChitti Total: ${fmt(chittiSum)}\nRD Amount: ${fmt(rd)}\n\nTotal Due: ${fmt(total)}\n\nPlease clear at your convenience.\n\nThank you.`;
-    const phone = (member.phone||"").replace(/\D/g,"");
+    let phone = (member.phone || "").replace(/\D/g, "");
+    if (phone.length === 10) phone = "91" + phone;
+    if (!phone) { toast("Please add a phone number first", "error"); return; }
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-    window.open(url,"_blank");
-    toast("Opening WhatsApp","success");
+    window.open(url, "_blank");
+    toast("Opening WhatsApp", "success");
   };
 
   const saveEdit = () => {
     updateMember(member.id, form);
     setEditing(false);
-    toast("Member updated","success");
+    toast("Member updated", "success");
   };
 
   return (
@@ -3700,7 +3798,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {/* Contact */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-3">Contact</div>
             <div className="space-y-3">
@@ -3721,7 +3818,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
             </div>
           </div>
 
-          {/* Chitti */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-1">Chitti Total</div>
             <div className="text-3xl font-extrabold text-white tracking-tight">{fmt(chittiSum)}</div>
@@ -3737,7 +3833,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
             </div>
           </div>
 
-          {/* RD */}
           <div className="glass p-5">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-1">RD Monthly</div>
             <div className="text-3xl font-extrabold text-white tracking-tight">{fmt(rd)}</div>
@@ -3748,7 +3843,6 @@ const MemberDetail = ({member,updateMember,setView}) => {
         </div>
       )}
 
-      {/* Tabs */}
       <div className="glass-strong p-2 mb-4 inline-flex gap-1 rounded-xl">
         {[["chittis","Chittis"],["rd","RD Entries"],["payments","Payments"]].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} className={`tab-btn px-4 py-2 rounded-lg text-sm font-semibold ${tab===k?"active":"text-gray-400"}`}>{l}</button>
@@ -3796,7 +3890,7 @@ const ChittisTab = ({member,updateMember}) => {
       {member.chittis.length===0 ? <EmptyState title="No chittis" desc="Add your first chitti plan above."/> : (
         <div className="space-y-2">
           {member.chittis.map(c=>(
-            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/5">
+            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
               <div>
                 <div className="font-semibold text-white">{c.name}</div>
                 <div className="text-xs text-gray-400">{c.months} months · started {monthLabel(c.started)}</div>
@@ -3867,7 +3961,7 @@ const PaymentsTab = ({member,updateMember}) => {
       {payments.length===0 ? <EmptyState title="No payments" desc="Record payments as they come in."/> : (
         <div className="space-y-2">
           {payments.map(p=>(
-            <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/5">
+            <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
               <div>
                 <div className="font-semibold text-white">{fmt(p.amount)}</div>
                 <div className="text-xs text-gray-400">{p.note || "—"} · {new Date(p.date).toLocaleDateString()}</div>
@@ -3992,50 +4086,1026 @@ const MobileNav = ({view,setView}) => {
   return (
     <nav className="lg:hidden fixed bottom-4 left-4 right-4 z-40 glass-strong p-2 flex items-center justify-around">
       {items.map(it=>(
-        <button key={it.k} onClick={()=>setView(it.k)}
-          className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl transition ${view===it.k?"bg-white/10 text-white":"text-gray-400"}`}>
-          <Icon name={it.icon} className="w-5 h-5"/>
-          <span className="text-[10px] font-semibold">{it.label}</span>
-        </button>
-      ))}
-    </nav>
+        <button key={it.k} onClick# White Page Fix
+
+The white page is caused by **Babel standalone configuration error**. The `data-presets="react"` attribute is incorrect and causes silent failure.
+
+Here's the **complete corrected file** with all fixes:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Z Chitti — Smart Finance Tracker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#0B0F1A;
+    --bg-1:#111827;
+    --bg-2:#020617;
+    --primary:#3B82F6;
+    --violet:#8B5CF6;
+    --teal:#14B8A6;
+    --amber:#F59E0B;
+    --danger:#EF4444;
+    --success:#10B981;
+  }
+  *{font-family:'Inter',system-ui,sans-serif;}
+  html,body,#root{height:100%;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(59,130,246,0.12), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgba(139,92,246,0.10), transparent 60%),
+      radial-gradient(900px 700px at 50% 120%, rgba(20,184,166,0.08), transparent 60%),
+      linear-gradient(180deg, #0B0F1A 0%, #111827 50%, #020617 100%);
+    color:#E5E7EB;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  .glass{
+    background:rgba(255,255,255,0.04);
+    backdrop-filter:blur(20px) saturate(140%);
+    -webkit-backdrop-filter:blur(20px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:1.25rem;
+  }
+  .glass-strong{
+    background:rgba(255,255,255,0.06);
+    backdrop-filter:blur(24px) saturate(160%);
+    -webkit-backdrop-filter:blur(24px) saturate(160%);
+    border:1px solid rgba(255,255,255,0.10);
+    border-radius:1.25rem;
+  }
+  .glass-input{
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);
+    transition:all .2s ease;
+  }
+  .glass-input:focus{
+    outline:none;
+    border-color:rgba(59,130,246,0.5);
+    background:rgba(255,255,255,0.06);
+    box-shadow:0 0 0 4px rgba(59,130,246,0.10);
+  }
+  .btn-primary{
+    background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%);
+    color:white;
+    font-weight:600;
+    transition:all .2s ease;
+    box-shadow:0 10px 30px -10px rgba(59,130,246,0.5);
+  }
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 14px 36px -10px rgba(139,92,246,0.6);}
+  .btn-primary:active{transform:translateY(0);}
+  .btn-ghost{
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);
+    transition:all .2s ease;
+  }
+  .btn-ghost:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.14);}
+  .btn-danger{
+    background:rgba(239,68,68,0.12);
+    color:#FCA5A5;
+    border:1px solid rgba(239,68,68,0.25);
+    transition:all .2s ease;
+  }
+  .btn-danger:hover{background:rgba(239,68,68,0.20);}
+  .btn-wa{
+    background:linear-gradient(135deg,#14B8A6 0%,#10B981 100%);
+    color:white;font-weight:600;
+    box-shadow:0 10px 30px -10px rgba(16,185,129,0.5);
+    transition:all .2s ease;
+  }
+  .btn-wa:hover{transform:translateY(-1px);}
+  .nav-item{
+    transition:all .2s ease;
+    position:relative;
+  }
+  .nav-item.active{
+    background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(139,92,246,0.12));
+    border:1px solid rgba(59,130,246,0.25);
+  }
+  .nav-item:not(.active):hover{background:rgba(255,255,255,0.04);}
+  .card-hover{transition:all .25s ease;}
+  .card-hover:hover{transform:translateY(-2px);border-color:rgba(255,255,255,0.14);box-shadow:0 20px 50px -20px rgba(0,0,0,0.6);}
+  .fade-in{animation:fadeIn .4s ease both;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  .slide-in{animation:slideIn .35s ease both;}
+  @keyframes slideIn{from{opacity:0;transform:translateX(-10px);}to{opacity:1;transform:translateX(0);}}
+  .toast-in{animation:toastIn .35s cubic-bezier(.2,.9,.3,1.2) both;}
+  @keyframes toastIn{from{opacity:0;transform:translateY(-20px) scale(.95);}to{opacity:1;transform:translateY(0) scale(1);}}
+  .skeleton{
+    background:linear-gradient(90deg,rgba(255,255,255,0.04) 0%,rgba(255,255,255,0.08) 50%,rgba(255,255,255,0.04) 100%);
+    background-size:200% 100%;
+    animation:shimmer 1.6s infinite;
+    border-radius:.5rem;
+  }
+  @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  .scrollbar::-webkit-scrollbar{width:6px;height:6px;}
+  .scrollbar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px;}
+  .scrollbar::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.2);}
+  .grad-text{background:linear-gradient(135deg,#60A5FA,#A78BFA);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .avatar{
+    background:linear-gradient(135deg,#3B82F6,#8B5CF6);
+    color:white;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .pill{padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:600;letter-spacing:.02em;}
+  .divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);}
+  .tab-btn{transition:all .2s ease;}
+  .tab-btn.active{background:rgba(255,255,255,0.08);color:white;}
+  .tab-btn:not(.active):hover{color:white;}
+  input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  input[type=number]{-moz-appearance:textfield;}
+  .bg-grid{
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  select.glass-input {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239CA3AF' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  .error-box{
+    background:rgba(239,68,68,0.1);
+    border:1px solid rgba(239,68,68,0.3);
+    color:#FCA5A5;
+    padding:20px;
+    border-radius:12px;
+    margin:20px;
+    font-family:monospace;
+    white-space:pre-wrap;
+  }
+</style>
+</head>
+<body class="bg-grid">
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#9CA3AF;font-family:Inter,sans-serif;">
+    <div style="text-align:center;">
+      <div style="width:48px;height:48px;margin:0 auto 16px;border-radius:12px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:20px;">Z</div>
+      <div style="font-size:14px;">Loading Z Chitti…</div>
+    </div>
+  </div>
+</div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo, createContext, useContext } = React;
+
+/* ---------------- Error Boundary ---------------- */
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("App Error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-box">
+          <div style={{fontWeight:'bold',marginBottom:10}}>⚠️ Application Error</div>
+          <div>{this.state.error?.toString()}</div>
+          <div style={{marginTop:10,fontSize:12,color:'#9CA3AF'}}>
+            Check browser console for details
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+/* ---------------- Utilities ---------------- */
+const fmt = (n) => "₹" + Number(n||0).toLocaleString("en-IN");
+const uid = () => Math.random().toString(36).slice(2,10);
+const initials = (s) => (s||"?").trim().split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+const monthKey = (d=new Date()) => d.toISOString().slice(0,7);
+const monthLabel = (k) => {
+  const [y,m] = k.split("-");
+  return new Date(y, m-1).toLocaleString("en-IN",{month:"long",year:"numeric"});
+};
+
+/* ---------------- Seed Data ---------------- */
+const seedMembers = () => [
+  {id:uid(),name:"Arjun Menon",nickname:"Aju",phone:"9847012345",location:"Kochi",notes:"Family friend",status:"active",createdAt:Date.now()-9e8,
+   chittis:[{id:uid(),name:"Lakshmi Chitti",amount:50000,months:20,started:"2024-03"},{id:uid(),name:"Sree Chitti",amount:25000,months:12,started:"2024-06"}],
+   rd:{amount:2000,started:"2024-01"},payments:[]},
+  {id:uid(),name:"Priya Nair",nickname:"Pri",phone:"9746023456",location:"Trivandrum",notes:"",status:"active",createdAt:Date.now()-8e8,
+   chittis:[{id:uid(),name:"Lakshmi Chitti",amount:50000,months:20,started:"2024-03"}],
+   rd:{amount:3000,started:"2024-02"},payments:[]},
+  {id:uid(),name:"Rahul Krishnan",nickname:"Rah",phone:"9645034567",location:"Calicut",notes:"",status:"active",createdAt:Date.now()-7e8,
+   chittis:[],rd:{amount:1500,started:"2024-04"},payments:[]},
+  {id:uid(),name:"Sneha Das",nickname:"Sne",phone:"9544045678",location:"Thrissur",notes:"Quit last month",status:"quit",createdAt:Date.now()-6e8,
+   chittis:[{id:uid(),name:"Sree Chitti",amount:25000,months:12,started:"2024-06"}],
+   rd:{amount:0,started:null},payments:[]},
+  {id:uid(),name:"Vikram Iyer",nickname:"Vik",phone:"9433056789",location:"Bangalore",notes:"",status:"active",createdAt:Date.now()-5e8,
+   chittis:[{id:uid(),name:"Lakshmi Chitti",amount:50000,months:20,started:"2024-03"},{id:uid(),name:"Sree Chitti",amount:25000,months:12,started:"2024-06"}],
+   rd:{amount:5000,started:"2024-01"},payments:[]},
+];
+
+/* ---------------- Storage ---------------- */
+const LS_KEY = "zchitti_v1";
+const loadState = () => {
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { members: seedMembers(), payments: {} };
+};
+const saveState = (s) => { try{ localStorage.setItem(LS_KEY, JSON.stringify(s)); }catch(e){} };
+
+/* ---------------- Toast ---------------- */
+const ToastCtx = createContext(null);
+const ToastProvider = ({children}) => {
+  const [toasts,setToasts] = useState([]);
+  const push = (msg, type="info") => {
+    const id = uid();
+    setToasts(t=>[...t,{id,msg,type}]);
+    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)), 3200);
+  };
+  return (
+    <ToastCtx.Provider value={push}>
+      {children}
+      <div className="fixed top-5 right-5 left-5 sm:left-auto z-[100] space-y-2 sm:w-[320px]">
+        {toasts.map(t=>(
+          <div key={t.id} className={`toast-in glass-strong px-4 py-3 flex items-start gap-3 shadow-2xl`}>
+            <div className={`w-2 h-2 rounded-full mt-2 ${t.type==="success"?"bg-emerald-400":t.type==="error"?"bg-red-400":"bg-blue-400"}`}/>
+            <div className="text-sm text-gray-100 flex-1">{t.msg}</div>
+          </div>
+        ))}
+      </div>
+    </ToastCtx.Provider>
+  );
+};
+const useToast = () => useContext(ToastCtx);
+
+/* ---------------- Icons ---------------- */
+const Icon = ({name, className="w-5 h-5"}) => {
+  const paths = {
+    dashboard:<><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></>,
+    users:<><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19c.5-3.5 3.5-6 6.5-6s6 2.5 6.5 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15 14c2.5 0 5 1.8 5.5 5"/></>,
+    plus:<><path d="M12 5v14M5 12h14"/></>,
+    calendar:<><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></>,
+    search:<><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></>,
+    back:<><path d="M15 18l-6-6 6-6"/></>,
+    edit:<><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></>,
+    phone:<><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z"/></>,
+    pin:<><path d="M12 22s8-7.6 8-13a8 8 0 1 0-16 0c0 5.4 8 13 8 13z"/><circle cx="12" cy="9" r="2.5"/></>,
+    wa:<><path d="M20 12a8 8 0 1 0-3 6.3l.7 2.7-2.8-.8A8 8 0 0 1 20 12z"/><path d="M8 10c.5 2.5 2.5 4.5 5 5l1.2-1.2-2-1.2-.8.3c-.8-.5-1.5-1.2-2-2l.3-.8-1.2-2L8 10z"/></>,
+    check:<><path d="M20 6L9 17l-5-5"/></>,
+    x:<><path d="M18 6L6 18M6 6l12 12"/></>,
+    trendUp:<><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></>,
+    trendDown:<><path d="M3 7l6 6 4-4 8 8"/><path d="M14 17h7v-7"/></>,
+    coin:<><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a2 2 0 0 1 0 4H9"/></>,
+    clock:<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
+    alert:<><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.86l-8.18 14.18A2 2 0 0 0 3.85 21h16.3a2 2 0 0 0 1.73-3L13.7 3.86a2 2 0 0 0-3.4 0z"/></>,
+    dots:<><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></>,
+    sparkle:<><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></>,
+  };
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      {paths[name]}
+    </svg>
   );
 };
 
-/* ---------------- App ---------------- */
-const App = () => {
-  const [state,setState] = useState(loadState);
-  const [view,setView] = useState("dashboard");
-  const [selectedMemberId,setSelectedMemberId] = useState(null);
+/* ---------------- Layout ---------------- */
+const Sidebar = ({view,setView}) => {
+  const items = [
+    {k:"dashboard",label:"Dashboard",icon:"dashboard"},
+    {k:"members",label:"Members",icon:"users"},
+    {k:"add",label:"Add Member",icon:"plus"},
+    {k:"monthly",label:"Monthly",icon:"calendar"},
+  ];
+  return (
+    <aside className="hidden lg:flex flex-col w-64 shrink-0 p-4 sticky top-0 h-screen">
+      <div className="glass-strong p-5 mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{background:"linear-gradient(135deg,#3B82F6,#8B5CF6)"}}>
+            <span className="text-white font-black text-lg">Z</span>
+          </div>
+          <div>
+            <div className="font-bold text-white tracking-tight">Z Chitti</div>
+            <div className="text-[10px] uppercase tracking-widest text-gray-400">Smart Finance</div>
+          </div>
+        </div>
+      </div>
+      <nav className="space-y-1.5 flex-1">
+        {items.map(it=>(
+          <button key={it.k} onClick={()=>setView(it.k)}
+            className={`nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-300 ${view===it.k?"active text-white":"hover:text-white"}`}>
+            <Icon name={it.icon} className="w-[18px] h-[18px]"/>
+            <span className="font-medium">{it.label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="glass p-4 mt-4">
+        <div className="flex items-center gap-3">
+          <div className="avatar w-9 h-9 rounded-full text-sm">AD</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-white truncate">Admin</div>
+            <div className="text-[11px] text-gray-400 truncate">admin@zchitti.app</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+};
 
-  useEffect(()=>saveState(state),[state]);
+const TopBar = ({title,subtitle,children}) => (
+  <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+    <div>
+      <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">{title}</h1>
+      {subtitle && <p className="text-sm text-gray-400 mt-1">{subtitle}</p>}
+    </div>
+    <div className="flex items-center gap-2">{children}</div>
+  </div>
+);
 
-  const members = state.members;
-  const selectedMember = members.find(m=>m.id===selectedMemberId) || null;
+/* ---------------- Dashboard ---------------- */
+const StatCard = ({label,value,trend,icon,gradient}) => (
+  <div className="glass card-hover p-5 relative overflow-hidden">
+    <div className="flex items-start justify-between">
+      <div>
+        <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold">{label}</div>
+        <div className="text-3xl font-extrabold text-white tracking-tight mt-2">{value}</div>
+        {trend!==undefined && (
+          <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${trend>=0?"text-emerald-400":"text-red-400"}`}>
+            <Icon name={trend>=0?"trendUp":"trendDown"} className="w-3.5 h-3.5"/>
+            <span>{Math.abs(trend)}% vs last month</span>
+          </div>
+        )}
+      </div>
+      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white" style={{background:gradient}}>
+        <Icon name={icon} className="w-5 h-5"/>
+      </div>
+    </div>
+  </div>
+);
 
-  const addMember = (m) => setState(s=>({...s,members:[m,...s.members]}));
-  const updateMember = (id,patch) => setState(s=>({...s,members:s.members.map(m=>m.id===id?{...m,...patch}:m)}));
+const Dashboard = ({members,setView,setSelectedMemberId}) => {
+  const active = members.filter(m=>m.status==="active");
+  const totalMembers = active.length;
+  const monthlyCollection = active.reduce((s,m)=>{
+    const chittiTotal = m.chittis.reduce((a,c)=>a+Number(c.amount||0),0);
+    const rd = Number(m.rd?.amount||0);
+    return s + chittiTotal + rd;
+  },0);
+  const pending = active.reduce((s,m)=>{
+    const chittiTotal = m.chittis.reduce((a,c)=>a+Number(c.amount||0),0);
+    return s + chittiTotal*0.2;
+  },0);
+  const overdue = active.filter(m=>m.status==="active" && m.chittis.length>0).length;
 
   return (
-    <ToastProvider>
-      <div className="min-h-screen flex">
-        <Sidebar view={view} setView={setView}/>
-        <main className="flex-1 min-w-0 p-4 md:p-8 pb-28 lg:pb-8">
-          <div className="max-w-7xl mx-auto">
-            {view==="dashboard" && <Dashboard members={members} setView={setView} setSelectedMemberId={setSelectedMemberId}/>}
-            {view==="members" && <MembersView members={members} setView={setView} setSelectedMemberId={setSelectedMemberId}/>}
-            {view==="add" && <AddMember onAdd={addMember} setView={setView}/>}
-            {view==="detail" && <MemberDetail member={selectedMember} updateMember={updateMember} setView={setView}/>}
-            {view==="monthly" && <MonthlySummary members={members}/>}
-          </div>
-        </main>
-        <MobileNav view={view} setView={setView}/>
+    <div className="fade-in">
+      <TopBar title="Dashboard" subtitle="Overview of your chitti portfolio">
+        <button onClick={()=>setView("add")} className="btn-primary px-4 py-2.5 rounded-xl text-sm flex items-center gap-2">
+          <Icon name="plus" className="w-4 h-4"/> New Member
+        </button>
+      </TopBar>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <StatCard label="Total Members" value={totalMembers} trend={8} icon="users" gradient="linear-gradient(135deg,#3B82F6,#8B5CF6)"/>
+        <StatCard label="Monthly Collection" value={fmt(monthlyCollection)} trend={12} icon="coin" gradient="linear-gradient(135deg,#14B8A6,#3B82F6)"/>
+        <StatCard label="Pending Amount" value={fmt(pending)} trend={-4} icon="clock" gradient="linear-gradient(135deg,#F59E0B,#EF4444)"/>
+        <StatCard label="Overdue Members" value={overdue} trend={-2} icon="alert" gradient="linear-gradient(135deg,#EF4444,#8B5CF6)"/>
       </div>
-    </ToastProvider>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="glass p-6 xl:col-span-2">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold">Recent Members</div>
+              <div className="text-lg font-bold text-white mt-1">Active portfolio</div>
+            </div>
+            <button onClick={()=>setView("members")} className="text-xs text-blue-400 hover:text-blue-300 font-semibold">View all →</button>
+          </div>
+          <div className="space-y-2">
+            {active.slice(0,5).map(m=>{
+              const total = m.chittis.reduce((a,c)=>a+Number(c.amount||0),0) + Number(m.rd?.amount||0);
+              return (
+                <button key={m.id} onClick={()=>{setSelectedMemberId(m.id);setView("detail");}}
+                  className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition text-left">
+                  <div className="avatar w-10 h-10 rounded-full text-sm">{initials(m.name)}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-white truncate">{m.name}</div>
+                    <div className="text-xs text-gray-400 truncate">{m.location} · {m.chittis.length} chitti{m.chittis.length!==1?"s":""}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-white">{fmt(total)}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500">monthly</div>
+                  </div>
+                </button>
+              );
+            })}
+            {active.length===0 && <EmptyState title="No members yet" desc="Add your first member to get started."/>}
+          </div>
+        </div>
+
+        <div className="glass p-6">
+          <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold">Quick Actions</div>
+          <div className="text-lg font-bold text-white mt-1 mb-4">Shortcuts</div>
+          <div className="space-y-2">
+            <button onClick={()=>setView("add")} className="w-full btn-ghost px-4 py-3 rounded-xl flex items-center gap-3 text-left">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#3B82F6,#8B5CF6)"}}><Icon name="plus" className="w-4 h-4 text-white"/></div>
+              <div><div className="text-sm font-semibold text-white">Add Member</div><div className="text-xs text-gray-400">Onboard new participant</div></div>
+            </button>
+            <button onClick={()=>setView("monthly")} className="w-full btn-ghost px-4 py-3 rounded-xl flex items-center gap-3 text-left">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#14B8A6,#3B82F6)"}}><Icon name="calendar" className="w-4 h-4 text-white"/></div>
+              <div><div className="text-sm font-semibold text-white">Monthly Summary</div><div className="text-xs text-gray-400">Review collections</div></div>
+            </button>
+            <button onClick={()=>setView("members")} className="w-full btn-ghost px-4 py-3 rounded-xl flex items-center gap-3 text-left">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#F59E0B,#EF4444)"}}><Icon name="users" className="w-4 h-4 text-white"/></div>
+              <div><div className="text-sm font-semibold text-white">Manage Members</div><div className="text-xs text-gray-400">Search, edit, filter</div></div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
-</body>
-</html>
+/* ---------------- Members List ---------------- */
+const MembersView = ({members,setView,setSelectedMemberId}) => {
+  const [q,setQ] = useState("");
+  const [filter,setFilter] = useState("active");
+  const list = useMemo(()=>{
+    return members
+      .filter(m=>filter==="all"||m.status===filter)
+      .filter(m=>{
+        if(!q) return true;
+        const s = (m.name+" "+(m.nickname||"")+" "+(m.location||"")).toLowerCase();
+        return s.includes(q.toLowerCase());
+      })
+      .sort((a,b)=>b.createdAt-a.createdAt);
+  },[members,q,filter]);
+
+  return (
+    <div className="fade-in">
+      <TopBar title="Members" subtitle={`${members.length} total · ${members.filter(m=>m.status==="active").length} active`}>
+        <button onClick={()=>setView("add")} className="btn-primary px-4 py-2.5 rounded-xl text-sm flex items-center gap-2">
+          <Icon name="plus" className="w-4 h-4"/> Add
+        </button>
+      </TopBar>
+
+      <div className="glass p-4 mb-4 flex flex-col md:flex-row gap-3 md:items-center">
+        <div className="relative flex-1">
+          <Icon name="search" className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"/>
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search members…"
+            className="glass-input w-full rounded-full pl-11 pr-4 py-3 text-sm text-white placeholder-gray-500"/>
+        </div>
+        <div className="flex gap-1 p-1 rounded-full bg-white/5 border border-white/10 w-fit">
+          {[["active","Active"],["quit","Past"],["all","All"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setFilter(k)}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${filter===k?"bg-white/10 text-white":"text-gray-400 hover:text-white"}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {list.length===0 ? (
+        <div className="glass p-10"><EmptyState title="No members found" desc="Try a different search or filter."/></div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {list.map((m,i)=>(
+            <MemberCard key={m.id} m={m} i={i} onOpen={()=>{setSelectedMemberId(m.id);setView("detail");}}/>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const MemberCard = ({m,i,onOpen}) => {
+  const chittiSum = m.chittis.reduce((a,c)=>a+Number(c.amount||0),0);
+  const rd = Number(m.rd?.amount||0);
+  const total = chittiSum + rd;
+  return (
+    <button onClick={onOpen} className="glass card-hover p-5 text-left slide-in" style={{animationDelay:`${i*40}ms`}}>
+      <div className="flex items-start gap-4">
+        <div className="avatar w-12 h-12 rounded-2xl text-base shrink-0">{initials(m.name)}</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="font-bold text-white text-lg truncate">{m.name}</div>
+            <span className={`pill ${m.status==="active"?"bg-emerald-500/15 text-emerald-300 border border-emerald-500/25":"bg-gray-500/15 text-gray-400 border border-gray-500/25"}`}>
+              {m.status==="active"?"Active":"Quit"}
+            </span>
+          </div>
+          <div className="text-xs text-gray-400 mt-0.5 truncate">
+            {m.nickname && <span className="text-gray-500">"{m.nickname}" · </span>}
+            {m.location || "—"}
+          </div>
+          <div className="flex gap-2 mt-3 flex-wrap">
+            <span className="pill bg-blue-500/10 text-blue-300 border border-blue-500/20">{m.chittis.length} chitti{m.chittis.length!==1?"s":""}</span>
+            {rd>0 && <span className="pill bg-violet-500/10 text-violet-300 border border-violet-500/20">RD {fmt(rd)}</span>}
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Total</div>
+          <div className="text-xl font-extrabold text-white tracking-tight mt-0.5">{fmt(total)}</div>
+        </div>
+      </div>
+    </button>
+  );
+};
+
+const EmptyState = ({title,desc}) => (
+  <div className="flex flex-col items-center justify-center py-8 text-center">
+    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{background:"linear-gradient(135deg,rgba(59,130,246,0.2),rgba(139,92,246,0.2))"}}>
+      <Icon name="sparkle" className="w-7 h-7 text-blue-300"/>
+    </div>
+    <div className="font-semibold text-white">{title}</div>
+    <div className="text-sm text-gray-400 mt-1">{desc}</div>
+  </div>
+);
+
+/* ---------------- Add Member ---------------- */
+const AddMember = ({onAdd,setView}) => {
+  const toast = useToast();
+  const [form,setForm] = useState({name:"",nickname:"",phone:"",location:"",notes:""});
+  const [chittis,setChittis] = useState([{id:uid(),name:"",amount:"",months:""}]);
+  const [rd,setRd] = useState("");
+
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const updateChitti = (id,k,v) => setChittis(cs=>cs.map(c=>c.id===id?{...c,[k]:v}:c));
+  const addChitti = () => setChittis(cs=>[...cs,{id:uid(),name:"",amount:"",months:""}]);
+  const removeChitti = (id) => setChittis(cs=>cs.filter(c=>c.id!==id));
+
+  const submit = (e) => {
+    e.preventDefault();
+    if(!form.name.trim()){ toast("Name is required","error"); return; }
+    const member = {
+      id:uid(),
+      ...form,
+      status:"active",
+      createdAt:Date.now(),
+      chittis: chittis.filter(c=>c.name && c.amount).map(c=>({id:c.id,name:c.name,amount:Number(c.amount),months:Number(c.months)||12,started:monthKey()})),
+      rd:{amount:Number(rd)||0,started:rd?monthKey():null},
+      payments:[]
+    };
+    onAdd(member);
+    toast("Member added successfully","success");
+    setView("members");
+  };
+
+  return (
+    <div className="fade-in max-w-4xl">
+      <TopBar title="Add Member" subtitle="Onboard a new participant">
+        <button onClick={()=>setView("members")} className="btn-ghost px-4 py-2.5 rounded-xl text-sm flex items-center gap-2">
+          <Icon name="back" className="w-4 h-4"/> Back
+        </button>
+      </TopBar>
+
+      <form onSubmit={submit} className="glass-strong p-6 md:p-8 space-y-6">
+        <Section title="Personal Details" icon="users">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Full Name *" value={form.name} onChange={v=>set("name",v)} placeholder="e.g. Arjun Menon"/>
+            <Field label="Nickname" value={form.nickname} onChange={v=>set("nickname",v)} placeholder="e.g. Aju"/>
+            <Field label="Phone" value={form.phone} onChange={v=>set("phone",v)} placeholder="98xxxxxxxx"/>
+            <Field label="Location" value={form.location} onChange={v=>set("location",v)} placeholder="Kochi"/>
+          </div>
+          <div className="mt-4">
+            <Field label="Notes" value={form.notes} onChange={v=>set("notes",v)} placeholder="Any additional notes…" textarea/>
+          </div>
+        </Section>
+
+        <Section title="Chitti Plans" icon="coin" action={<button type="button" onClick={addChitti} className="btn-ghost px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5"><Icon name="plus" className="w-3.5 h-3.5"/>Add chitti</button>}>
+          <div className="space-y-3">
+            {chittis.map((c,idx)=>(
+              <div key={c.id} className="glass p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs uppercase tracking-widest text-gray-400 font-semibold">Chitti #{idx+1}</div>
+                  {chittis.length>1 && <button type="button" onClick={()=>removeChitti(c.id)} className="text-red-400 hover:text-red-300 text-xs font-semibold">Remove</button>}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Field label="Chitti Name" value={c.name} onChange={v=>updateChitti(c.id,"name",v)} placeholder="Lakshmi Chitti"/>
+                  <Field label="Amount (₹)" value={c.amount} onChange={v=>updateChitti(c.id,"amount",v)} type="number" placeholder="50000"/>
+                  <Field label="Months" value={c.months} onChange={v=>updateChitti(c.id,"months",v)} type="number" placeholder="20"/>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="Recurring Deposit" icon="coin">
+          <div className="max-w-sm">
+            <Field label="Monthly RD Amount (₹)" value={rd} onChange={setRd} type="number" placeholder="2000"/>
+          </div>
+        </Section>
+
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <button type="button" onClick={()=>setView("members")} className="btn-ghost px-5 py-3 rounded-xl text-sm font-semibold">Cancel</button>
+          <button type="submit" className="btn-primary px-6 py-3 rounded-xl text-sm flex items-center gap-2">
+            <Icon name="check" className="w-4 h-4"/> Save Member
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+const Section = ({title,icon,action,children}) => (
+  <div>
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,rgba(59,130,246,0.2),rgba(139,92,246,0.2))"}}>
+          <Icon name={icon} className="w-4 h-4 text-blue-300"/>
+        </div>
+        <div className="font-bold text-white">{title}</div>
+      </div>
+      {action}
+    </div>
+    {children}
+  </div>
+);
+
+const Field = ({label,value,onChange,placeholder,type="text",textarea}) => (
+  <label className="block">
+    <span className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold block mb-1.5">{label}</span>
+    {textarea ? (
+      <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3}
+        className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 resize-none"/>
+    ) : (
+      <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+        className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500"/>
+    )}
+  </label>
+);
+
+/* ---------------- Member Detail ---------------- */
+const MemberDetail = ({member,updateMember,setView}) => {
+  const toast = useToast();
+  const [tab,setTab] = useState("chittis");
+  const [editing,setEditing] = useState(false);
+  const [form,setForm] = useState({...member});
+
+  useEffect(()=>setForm({...member}),[member?.id]);
+
+  if(!member) return <div className="glass p-10"><EmptyState title="Member not found" desc="Go back to members list."/></div>;
+
+  const chittiSum = member.chittis.reduce((a,c)=>a+Number(c.amount||0),0);
+  const rd = Number(member.rd?.amount||0);
+
+  const waMsg = () => {
+    const total = chittiSum + rd;
+    const text = `Dear ${member.name},\n\nHere is your monthly update:\n\nChitti Total: ${fmt(chittiSum)}\nRD Amount: ${fmt(rd)}\n\nTotal Due: ${fmt(total)}\n\nPlease clear at your convenience.\n\nThank you.`;
+    let phone = (member.phone || "").replace(/\D/g, "");
+    if (phone.length === 10) phone = "91" + phone;
+    if (!phone) { toast("Please add a phone number first", "error"); return; }
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+    toast("Opening WhatsApp", "success");
+  };
+
+  const saveEdit = () => {
+    updateMember(member.id, form);
+    setEditing(false);
+    toast("Member updated", "success");
+  };
+
+  return (
+    <div className="fade-in">
+      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+        <div className="flex items-center gap-4">
+          <button onClick={()=>setView("members")} className="btn-ghost w-10 h-10 rounded-xl flex items-center justify-center">
+            <Icon name="back" className="w-4 h-4"/>
+          </button>
+          <div className="avatar w-12 h-12 rounded-2xl text-base">{initials(member.name)}</div>
+          <div>
+            <div className="text-2xl font-bold text-white tracking-tight">{member.name}</div>
+            <div className="text-xs text-gray-400">{member.location || "—"} · {member.status==="active"?"Active":"Quit"}</div>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={waMsg} className="btn-wa px-4 py-2.5 rounded-xl text-sm flex items-center gap-2">
+            <Icon name="wa" className="w-4 h-4"/> WhatsApp
+          </button>
+          {!editing ? (
+            <button onClick={()=>setEditing(true)} className="btn-ghost px-4 py-2.5 rounded-xl text-sm flex items-center gap-2">
+              <Icon name="edit" className="w-4 h-4"/> Edit
+            </button>
+          ) : (
+            <>
+              <button onClick={()=>{setForm({...member});setEditing(false);}} className="btn-ghost px-4 py-2.5 rounded-xl text-sm">Cancel</button>
+              <button onClick={saveEdit} className="btn-primary px-4 py-2.5 rounded-xl text-sm">Save</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {editing ? (
+        <div className="glass-strong p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Name" value={form.name} onChange={v=>setForm({...form,name:v})}/>
+            <Field label="Nickname" value={form.nickname||""} onChange={v=>setForm({...form,nickname:v})}/>
+            <Field label="Phone" value={form.phone||""} onChange={v=>setForm({...form,phone:v})}/>
+            <Field label="Location" value={form.location||""} onChange={v=>setForm({...form,location:v})}/>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="glass p-5">
+            <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-3">Contact</div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-blue-500/10 text-blue-300"><Icon name="phone" className="w-4 h-4"/></div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-gray-500">Phone</div>
+                  <div className="text-sm text-white font-medium">{member.phone || "—"}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-violet-500/10 text-violet-300"><Icon name="pin" className="w-4 h-4"/></div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-gray-500">Location</div>
+                  <div className="text-sm text-white font-medium">{member.location || "—"}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass p-5">
+            <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-1">Chitti Total</div>
+            <div className="text-3xl font-extrabold text-white tracking-tight">{fmt(chittiSum)}</div>
+            <div className="divider my-3"/>
+            <div className="space-y-2">
+              {member.chittis.length===0 && <div className="text-xs text-gray-500">No chittis yet</div>}
+              {member.chittis.map(c=>(
+                <div key={c.id} className="flex items-center justify-between text-sm">
+                  <div className="text-gray-300 truncate">{c.name}</div>
+                  <div className="text-white font-semibold">{fmt(c.amount)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="glass p-5">
+            <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold mb-1">RD Monthly</div>
+            <div className="text-3xl font-extrabold text-white tracking-tight">{fmt(rd)}</div>
+            <div className="divider my-3"/>
+            <div className="text-xs text-gray-400">Started</div>
+            <div className="text-sm text-white font-medium">{member.rd?.started ? monthLabel(member.rd.started) : "—"}</div>
+          </div>
+        </div>
+      )}
+
+      <div className="glass-strong p-2 mb-4 inline-flex gap-1 rounded-xl">
+        {[["chittis","Chittis"],["rd","RD Entries"],["payments","Payments"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setTab(k)} className={`tab-btn px-4 py-2 rounded-lg text-sm font-semibold ${tab===k?"active":"text-gray-400"}`}>{l}</button>
+        ))}
+      </div>
+
+      <div className="glass p-6">
+        {tab==="chittis" && <ChittisTab member={member} updateMember={updateMember}/>}
+        {tab==="rd" && <RdTab member={member} updateMember={updateMember}/>}
+        {tab==="payments" && <PaymentsTab member={member} updateMember={updateMember}/>}
+      </div>
+    </div>
+  );
+};
+
+const ChittisTab = ({member,updateMember}) => {
+  const [name,setName] = useState("");
+  const [amount,setAmount] = useState("");
+  const [months,setMonths] = useState("12");
+  const toast = useToast();
+
+  const add = () => {
+    if(!name || !amount){ toast("Name & amount required","error"); return; }
+    const c = {id:uid(),name,amount:Number(amount),months:Number(months)||12,started:monthKey()};
+    updateMember(member.id,{...member,chittis:[...member.chittis,c]});
+    setName("");setAmount("");setMonths("12");
+    toast("Chitti added","success");
+  };
+  const remove = (id) => {
+    updateMember(member.id,{...member,chittis:member.chittis.filter(c=>c.id!==id)});
+    toast("Chitti removed","success");
+  };
+
+  return (
+    <div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
+        <Field label="Chitti Name" value={name} onChange={setName} placeholder="Lakshmi Chitti"/>
+        <Field label="Amount (₹)" value={amount} onChange={setAmount} type="number" placeholder="50000"/>
+        <Field label="Months" value={months} onChange={setMonths} type="number"/>
+        <div className="flex items-end">
+          <button onClick={add} className="btn-primary w-full py-3 rounded-xl text-sm flex items-center justify-center gap-2"><Icon name="plus" className="w-4 h-4"/>Add</button>
+        </div>
+      </div>
+      <div className="divider mb-4"/>
+      {member.chittis.length===0 ? <EmptyState title="No chittis" desc="Add your first chitti plan above."/> : (
+        <div className="space-y-2">
+          {member.chittis.map(c=>(
+            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
+              <div>
+                <div className="font-semibold text-white">{c.name}</div>
+                <div className="text-xs text-gray-400">{c.months} months · started {monthLabel(c.started)}</div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <div className="font-bold text-white">{fmt(c.amount)}</div>
+                  <div className="text-[10px] uppercase tracking-widest text-gray-500">per month</div>
+                </div>
+                <button onClick={()=>remove(c.id)} className="btn-danger px-3 py-1.5 rounded-lg text-xs font-semibold">Remove</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const RdTab = ({member,updateMember}) => {
+  const [amt,setAmt] = useState(String(member.rd?.amount||""));
+  const toast = useToast();
+  const save = () => {
+    updateMember(member.id,{...member,rd:{amount:Number(amt)||0,started:member.rd?.started||monthKey()}});
+    toast("RD updated","success");
+  };
+  return (
+    <div className="max-w-md">
+      <Field label="Monthly RD Amount (₹)" value={amt} onChange={setAmt} type="number" placeholder="2000"/>
+      <button onClick={save} className="btn-primary mt-4 px-5 py-2.5 rounded-xl text-sm">Update RD</button>
+    </div>
+  );
+};
+
+const PaymentsTab = ({member,updateMember}) => {
+  const [amt,setAmt] = useState("");
+  const [note,setNote] = useState("");
+  const toast = useToast();
+  const payments = member.payments || [];
+
+  const add = () => {
+    if(!amt){ toast("Amount required","error"); return; }
+    const p = {id:uid(),amount:Number(amt),note,date:new Date().toISOString()};
+    updateMember(member.id,{...member,payments:[p,...payments]});
+    setAmt("");setNote("");
+    toast("Payment recorded","success");
+  };
+  const remove = (id) => {
+    updateMember(member.id,{...member,payments:payments.filter(p=>p.id!==id)});
+  };
+
+  const total = payments.reduce((s,p)=>s+Number(p.amount||0),0);
+
+  return (
+    <div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <Field label="Amount (₹)" value={amt} onChange={setAmt} type="number" placeholder="5000"/>
+        <Field label="Note" value={note} onChange={setNote} placeholder="March chitti"/>
+        <div className="flex items-end">
+          <button onClick={add} className="btn-primary w-full py-3 rounded-xl text-sm flex items-center justify-center gap-2"><Icon name="plus" className="w-4 h-4"/>Record</button>
+        </div>
+      </div>
+      <div className="divider mb-4"/>
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm text-gray-400">{payments.length} payment{payments.length!==1?"s":""}</div>
+        <div className="text-sm font-semibold text-white">Total: <span className="text-emerald-400">{fmt(total)}</span></div>
+      </div>
+      {payments.length===0 ? <EmptyState title="No payments" desc="Record payments as they come in."/> : (
+        <div className="space-y-2">
+          {payments.map(p=>(
+            <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5">
+              <div>
+                <div className="font-semibold text-white">{fmt(p.amount)}</div>
+                <div className="text-xs text-gray-400">{p.note || "—"} · {new Date(p.date).toLocaleDateString()}</div>
+              </div>
+              <button onClick={()=>remove(p.id)} className="btn-danger px-3 py-1.5 rounded-lg text-xs font-semibold">Remove</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ---------------- Monthly Summary ---------------- */
+const MonthlySummary = ({members}) => {
+  const [month,setMonth] = useState(monthKey());
+  const months = useMemo(()=>{
+    const set = new Set([monthKey()]);
+    members.forEach(m=>{
+      m.chittis.forEach(c=>c.started && set.add(c.started));
+      if(m.rd?.started) set.add(m.rd.started);
+    });
+    return Array.from(set).sort().reverse();
+  },[members]);
+
+  const rows = members.filter(m=>m.status==="active").map(m=>{
+    const chitti = m.chittis.reduce((s,c)=>s+Number(c.amount||0),0);
+    const rd = Number(m.rd?.amount||0);
+    const total = chitti + rd;
+    const paid = (m.payments||[]).filter(p=>p.date && p.date.startsWith(month)).reduce((s,p)=>s+Number(p.amount||0),0);
+    const status = paid>=total && total>0 ? "paid" : paid>0 ? "partial" : total===0 ? "none" : "unpaid";
+    return {m,chitti,rd,total,paid,status};
+  });
+
+  const totals = rows.reduce((s,r)=>({chitti:s.chitti+r.chitti,rd:s.rd+r.rd,total:s.total+r.total,paid:s.paid+r.paid}),{chitti:0,rd:0,total:0,paid:0});
+
+  return (
+    <div className="fade-in">
+      <TopBar title="Monthly Summary" subtitle="Collections & dues overview">
+        <select value={month} onChange={e=>setMonth(e.target.value)}
+          className="glass-input rounded-xl px-4 py-2.5 text-sm text-white">
+          {months.map(m=><option key={m} value={m} className="bg-gray-900">{monthLabel(m)}</option>)}
+        </select>
+      </TopBar>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <MiniStat label="Chitti" value={fmt(totals.chitti)} color="#3B82F6"/>
+        <MiniStat label="RD" value={fmt(totals.rd)} color="#8B5CF6"/>
+        <MiniStat label="Total Due" value={fmt(totals.total)} color="#F59E0B"/>
+        <MiniStat label="Collected" value={fmt(totals.paid)} color="#10B981"/>
+      </div>
+
+      <div className="glass overflow-hidden">
+        <div className="overflow-x-auto scrollbar">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[11px] uppercase tracking-widest text-gray-400 border-b border-white/5">
+                <th className="text-left p-4 font-semibold">Member</th>
+                <th className="text-right p-4 font-semibold">Chitti</th>
+                <th className="text-right p-4 font-semibold">RD</th>
+                <th className="text-right p-4 font-semibold">Total</th>
+                <th className="text-right p-4 font-semibold">Paid</th>
+                <th className="text-center p-4 font-semibold">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r=>(
+                <tr key={r.m.id} className="border-b border-white/5 hover:bg-white/3 transition">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="avatar w-9 h-9 rounded-xl text-xs">{initials(r.m.name)}</div>
+                      <div>
+                        <div className="font-semibold text-white">{r.m.name}</div>
+                        <div className="text-xs text-gray-500">{r.m.location}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4 text-right text-white font-medium">{fmt(r.chitti)}</td>
+                  <td className="p-4 text-right text-white font-medium">{fmt(r.rd)}</td>
+                  <td className="p-4 text-right text-white font-bold">{fmt(r.total)}</td>
+                  <td className="p-4 text-right text-emerald-300 font-semibold">{fmt(r.paid)}</td>
+                  <td className="p-4 text-center">
+                    <StatusBadge s={r.status}/>
+                  </td>
+                </tr>
+              ))}
+              {rows.length===0 && <tr><td colSpan="6" className="p-10 text-center text-gray-500">No active members</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MiniStat = ({label,value,color}) => (
+  <div className="glass p-4">
+    <div className="text-[11px] uppercase tracking-widest text-gray-400 font-semibold">{label}</div>
+    <div className="text-xl font-extrabold text-white tracking-tight mt-1" style={{color}}>{value}</div>
+  </div>
+);
+
+const StatusBadge = ({s}) => {
+  const map = {
+    paid:["bg-emerald-500/15 text-emerald-300 border-emerald-500/25","Paid"],
+    partial:["bg-amber-500/15 text-amber-300 border-amber-500/25","Partial"],
+    unpaid:["bg-red-500/15 text-red-300 border-red-500/25","Unpaid"],
+    none:["bg-gray-500/15 text-gray-400 border-gray-500/25","—"],
+  };
+  const [cls,label] = map[s]||map.none;
+  return <span className={`pill border ${cls}`}>{label}</span>;
+};
+
+/* ---------------- Mobile Nav ---------------- */
+const MobileNav = ({view,setView}) => {
+  const items = [
+    {k:"dashboard",icon:"dashboard",label:"Home"},
+    {k:"members",icon:"users",label:"Members"},
+    {k:"add",icon:"plus",label:"Add"},
+    {k:"monthly",icon:"calendar",label:"Monthly"},
+  ];
+  return (
+    <nav className="lg:hidden fixed bottom-4 left-4 right-4 z-40 glass-strong p-2 flex items-center justify-around">
+      {items.map(it=>(
+        <button key={it.k} onClick
